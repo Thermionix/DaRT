@@ -35,7 +35,7 @@ Switch ($choice1)
 	"1" {
 
 	Write-Host "Installing wadk to $wadkfolder"
-	$process=Start-Process -file "$adkfolder\adksetup.exe" -arg "/quiet /installpath $adkfolder" -passthru
+	$process=Start-Process -file "$adkfolder\adksetup.exe" -arg "/quiet /installpath ""$wadkfolder""" -passthru
 	$process.WaitForExit()
 
 	} 
