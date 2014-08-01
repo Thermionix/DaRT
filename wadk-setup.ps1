@@ -1,6 +1,6 @@
 
 $adkfolder="C:\wadk_setup\offline\"
-$wadkfolder="C:\wadk\"
+$wadkfolder="C:\Program Files (x86)\Windows Kits\8.1\"
 $isofolder="C:\wadk_setup\"
 $isoname="wadk81"
 
@@ -34,8 +34,11 @@ Switch ($choice1)
 { 
 	"1" {
 
+	If (-not (Test-Path -path $wadkfolder -pathType container)) 
+	{ New-Item $wadkfolder -type directory }
+
 	Write-Host "Installing wadk to $wadkfolder"
-	$process=Start-Process -file "$adkfolder\adksetup.exe" -arg "/quiet /installpath ""$wadkfolder""" -passthru
+	$process=Start-Process -file "$adkfolder\adksetup.exe" -arg "/quiet /installpath ""$wadkfolder"" /features OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment" -passthru
 	$process.WaitForExit()
 
 	} 
