@@ -14,8 +14,8 @@ $SourceWimPath = "$SourceMediaPath\sources\boot.wim";
 $sourceWimIndex = 2;
 
 $SourceWimInfo = Dism /Get-WimInfo /WimFile="$SourceWimPath" /Index=$sourceWimIndex
-$SourceArchitecture = ([regex::Match(($SourceWimInfo | Select-String "^Architecture : "),'(x86|x64)').Value
-$SourceVersion = ([regex::Match(($SourceWimInfo | Select-String "^Version : "),'([0-9\.]+)').Value
+$SourceArchitecture = ([regex]::Match(($SourceWimInfo | Select-String "^Architecture : "),'(x86|x64)')).Value
+$SourceVersion = ([regex]::Match(($SourceWimInfo | Select-String "^Version : "),'([0-9\.]+)')).Value
 
 $DestinationWimPath = "C:\DaRT\boot-$SourceArchitecture-$SourceVersion.wim";
 $DestinationIsoPath = "C:\DaRT\DaRT-$DartVersion-Win-$SourceArchitecture-$SourceVersion.iso";
@@ -38,8 +38,7 @@ Copy-Item $SourceWimPath $DestinationWimPath -Force
 Set-ItemProperty $DestinationWimPath -Name IsReadOnly -Value $false
 
 Mount-WindowsImage -ImagePath $DestinationWimPath -Path $TempMountPath -Index $sourceWimIndex
-
-Get-MountedImageInfo
+try {
 
 #Add-WindowsDriver -Path $TempMountPath -Driver "C:\Windows\System32\DriverStore\FileRepository\xusb22.inf_amd64_2dca7d3a8a25c0f2\xusb22.inf" -ForceUnsigned
 
@@ -60,7 +59,7 @@ Add-WindowsPackage -Path $TempMountPath -PackagePath "$AdkPackagePath\WinPE_OCs\
 $config = New-DartConfiguration -AddAllTools -UpdateDefender
 $config | Set-DartImage -Path $TempMountPath
 
-Dismount-WindowsImage -Path $TempMountPath -Save
+finally { Dismount-WindowsImage -Path $TempMountPath -Save }
 
 Export-DartImage -IsoPath $DestinationIsoPath -WimPath $DestinationWimPath
 
