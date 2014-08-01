@@ -35,13 +35,9 @@ Switch ($choice1)
 { 
 	"1" {
 
-	If (-not (Test-Path -path $wadkfolder -pathType container)) 
-	{ New-Item $wadkfolder -type directory }
-
-	Write-Host "Installing wadk"
-
 	try {
 	Push-Location $adkfolder
+	Write-Host "Installing wadk"
 	& .\adksetup.exe /quiet /features OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment | Out-Host
 	} finally { Pop-Location }
 

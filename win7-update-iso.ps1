@@ -19,6 +19,7 @@ $mkisofs_bin="$scriptRoot\cdrtools-latest\mkisofs.exe"
 $x64_image=$true
 $win_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_u_677704.iso"
 
+# TODO : detect from target iso?
 if ($x64_image) { $wsus_target="w61-x64" } else { $wsus_target="w61" }
 
 $ignored_kbs=@("KB2506143","KB2533552","KB2819745")
@@ -260,4 +261,5 @@ Extract-BootBin
 Update-WimImage
 
 Build-UpdatedIso
+
 
