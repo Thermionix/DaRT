@@ -9,7 +9,6 @@ Import-Module "Microsoft.Dart"
 $SourceMediaPath = "D:\";
 $DartVersion = "8.1";
 $WadkInstallFolder = "C:\Program Files (x86)\Windows Kits\$DartVersion";
-$AdkPackagePath = "$WadkInstallFolder\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64";
 
 $SourceWimPath = "$SourceMediaPath\sources\boot.wim";
 $sourceWimIndex = 2;
@@ -20,6 +19,12 @@ $SourceVersion = ([regex::Match(($SourceWimInfo | Select-String "^Version : "),'
 
 $DestinationWimPath = "C:\DaRT\boot-$SourceArchitecture-$SourceVersion.wim";
 $DestinationIsoPath = "C:\DaRT\DaRT-$DartVersion-Win-$SourceArchitecture-$SourceVersion.iso";
+
+if ($SourceArchitecture -eq "x64") {
+$AdkPackagePath = "$WadkInstallFolder\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64";
+} else {
+$AdkPackagePath = "$WadkInstallFolder\Assessment and Deployment Kit\Windows Preinstallation Environment\x86";
+}
 
 $WimParentPath = (Split-Path -Path "$destinationWimPath" -Parent);
 $IsoParentPath = (Split-Path -Path "$destinationIsoPath" -Parent);

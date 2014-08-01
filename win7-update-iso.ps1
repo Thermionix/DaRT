@@ -67,9 +67,8 @@ function Test-ImDisk
 		Write-Host "Installing imdisk" -Fore Yellow
 
 		$imdiskinst="imdiskinst.exe"
-		
-		# Test $imdiskinst
-		# else wget
+
+		(New-Object System.Net.WebClient).DownloadFile($imdisk_url,$imdiskinst)
 
 		$env:IMDISK_SILENT_SETUP = 1
 		
