@@ -1,6 +1,8 @@
 ### This script uses the DISM and DaRT PowerShell commands to create a bootable DaRT image.
 ### Both a WIM and ISO file are produced.
 
+# TODO : test elevated
+
 $ErrorActionPreference = "Stop";
 
 Import-Module "Dism"
@@ -59,9 +61,11 @@ Add-WindowsPackage -Path $TempMountPath -PackagePath "$AdkPackagePath\WinPE_OCs\
 $config = New-DartConfiguration -AddAllTools -UpdateDefender
 $config | Set-DartImage -Path $TempMountPath
 
-finally { Dismount-WindowsImage -Path $TempMountPath -Save }
+Dismount-WindowsImage -Path $TempMountPath -Save
 
 Export-DartImage -IsoPath $DestinationIsoPath -WimPath $DestinationWimPath
 
-Remove-Item $TempMountPath -Force -Recurse
+}
+catch { Dismount-WindowsImage -Path $TempMountPath -Discard }
+finally { Remove-Item $TempMountPath -Force -Recurse }
 

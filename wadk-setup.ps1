@@ -1,8 +1,10 @@
 
-$adkfolder="C:\wadk_setup\offline\"
-$wadkfolder="C:\Program Files (x86)\Windows Kits\8.1\"
-$isofolder="C:\wadk_setup\"
-$isoname="wadk81"
+$adkfolder="C:\wadk_setup\"
+$isofolder=$pwd.Path
+
+$currentdate=(Get-Date).ToString("yyyyMMdd")
+$currentwinver=(Get-CimInstance Win32_OperatingSystem).Version
+$isoname="wadk-setup-$currentwinver-$currentdate"
 
 $adksetupexe="adksetup.exe"
 $adksetupurl="http://download.microsoft.com/download/6/A/E/6AEA92B0-A412-4622-983E-5B305D2EBE56/adk/adksetup.exe"
@@ -17,8 +19,7 @@ If (-not (Test-Path -path $adkfolder -pathType container))
 { New-Item $adkfolder -type directory }
 
 Write-Host "Updating wadk setup files contained in $adkfolder"
-$process=Start-Process -file $adksetupexe -arg "/quiet /layout ""$adkfolder""" -passthru
-$process.WaitForExit()
+& .\$adksetupexe /layout "$adkfolder" /quiet | Out-Host
 
 Do { 
 Write-Host "
@@ -42,14 +43,14 @@ Switch ($choice1)
 	try {
 	Push-Location $adkfolder
 	& .\adksetup.exe /quiet /features OptionId.DeploymentTools OptionId.WindowsPreinstallationEnvironment | Out-Host
-	finally { Pop-Location }
+	} finally { Pop-Location }
 
 	} 
 	"2" {
 
 	. .\New-IsoFile.ps1
 
-	dir "$adkfolder" | New-IsoFile -Path "$isofolder$isoname.iso" -Title "$isoname" -Force
+	dir "$adkfolder" | New-IsoFile -Path "$isofolder\$isoname.iso" -Title "$isoname" -Force
 
 	} 
 	"3" {
