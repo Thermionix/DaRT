@@ -23,7 +23,7 @@ if ($x64_image) { $wsus_target="w61-x64" } else { $wsus_target="w61" }
 
 $ignored_kbs=@("KB2506143","KB2533552","KB2819745")
 
-$kb_dir=Resolve-Path "$wsusoffline_dir\client\$wsus_target\glb"
+$kb_dir=(Join-Path $wsusoffline_dir "\client\$wsus_target\glb")
 $dism_temp="$scriptRoot\dismmount"
 $src_temp="$scriptRoot\src"
 $sources_temp="$src_temp\sources"
@@ -31,24 +31,28 @@ $wim_temp="$sources_temp\install.wim"
 $bootbin_filename="boot.bin"
 $bootbin_path="$src_temp\$bootbin_filename"
 
-# check powershell version
-# check admin priveleges
+# TODO : check powershell version
+# TODO : check admin priveleges
 
 function Download-Extract($url)
 {
-	#  $wc = New-Object System.Net.WebClient
-	#  $wc.DownloadFile($source, $destination)
+	$filename = [System.IO.Path]::GetFileName($url)
+	$file = [System.IO.Path]::Combine($pwd.Path, $filename)
+	Write-Host "Downloading $filename from $url"
 	
-	# unzip
+	(New-Object System.Net.WebClient).DownloadFile($url,$file)
+	
+	$shell_app=new-object -com shell.application
+	$zip_file = $shell_app.namespace($file)
+	$destination = $shell_app.namespace((Get-Location).Path)
+	$destination.Copyhere($zip_file.items())
 }
 
 function Test-WsusOfflineBin
 {
-	IF (-not (Test-Path $wsusoffline_bin)) {
-		
-		# pull $wsusoffline_url
-		# unzip $wsusoffline_zip into $wsusoffline_dir
-		throw "$wsusoffline_bin not found!"
+	IF (-not (Test-Path $wsusoffline_bin)) 
+	{
+		Download-Extract $wsusoffline_url
 	}
 }
 
@@ -67,21 +71,22 @@ function Test-ImDisk
 		Write-Host "Installing imdisk" -Fore Yellow
 
 		$imdiskinst="imdiskinst.exe"
-
+		
 		(New-Object System.Net.WebClient).DownloadFile($imdisk_url,$imdiskinst)
-
+		
 		$env:IMDISK_SILENT_SETUP = 1
 		
 		$process=Start-Process -file $imdiskinst -arg "-y" -passthru
 		$process.WaitForExit()
-		
-		#throw "failed to install ImDisk"
 	}
 }
 
 function Test-geteltorito
 {
-	#$geteltorito_url
+	IF (-not (Test-Path $geteltorito_bin)) 
+	{
+		Download-Extract $geteltorito_url
+	}
 }
 
 function Test-mkisofs
@@ -191,8 +196,10 @@ function Build-UpdatedIso
 	
 	$new_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_u_2957689.iso"
 
-	## TODO : test New-IsoFile.ps1	
+	. .\New-IsoFile.ps1
+	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title (Get-Date).ToString("yyyyMMdd-HHmmss.ffff") -BootFile "$bootbin_filename" -Force 
 
+	<#
 	IF (Test-Path $new_iso_filename) { Remove-Item $new_iso_filename }
 	
 	$mkisofs_args=@("-udf",
@@ -207,6 +214,7 @@ function Build-UpdatedIso
 		
 	$process=Start-Process -FilePath $mkisofs_bin -ArgumentList $mkisofs_args -passthru -Wait
 	$process.WaitForExit()
+	#>
 }
 
 function Copy-IsoContents
