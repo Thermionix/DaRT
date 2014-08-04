@@ -20,7 +20,7 @@ $SourceArchitecture = ([regex]::Match(($SourceWimInfo | Select-String "^Architec
 $SourceVersion = ([regex]::Match(($SourceWimInfo | Select-String "^Version : "),'([0-9\.]+)')).Value
 
 $DestinationWimPath = "C:\DaRT\boot-$SourceArchitecture-$SourceVersion.wim";
-$DestinationIsoPath = "C:\DaRT\DaRT-$DartVersion-Win-$SourceArchitecture-$SourceVersion.iso";
+$DestinationIsoPath = "C:\DaRT\DaRT81-Win-$SourceArchitecture-$SourceVersion.iso";
 
 if ($SourceArchitecture -eq "x64") {
 $AdkPackagePath = "$WadkInstallFolder\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64";
