@@ -203,9 +203,10 @@ function Build-UpdatedIso
 
 	$buildDate=(Get-Date).ToString("yyyyMMdd") # -HHmmss.ffff
 	$new_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_$buildDate.iso"
+	$bootFile=(Join-Path $src_temp "boot\etfsboot.com")
 
 	. .\New-IsoFile.ps1
-	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title $buildDate -BootFile etfsboot.com -Force
+	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title $buildDate -BootFile $bootFile -Force
 
 	<#
 	IF (Test-Path $new_iso_filename) { Remove-Item $new_iso_filename }
