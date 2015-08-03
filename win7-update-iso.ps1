@@ -1,38 +1,32 @@
+#requires -version 3.0
 
 $ErrorActionPreference = "Stop"
 $scriptRoot=Resolve-Path "."
 
-$wsusoffline_zip="wsusoffline931.zip"
+$wsusoffline_zip="wsusoffline97.zip"
 $wsusoffline_url="http://download.wsusoffline.net/$wsusoffline_zip"
 $wsusoffline_dir="$scriptRoot\wsusoffline"
 $wsusoffline_bin="$wsusoffline_dir\UpdateGenerator.exe"
 $wsusoffline_cmd="$wsusoffline_dir\cmd\DownloadUpdates.cmd"
-
-$geteltorito_url="http://www.ltr-data.se/files/geteltorito.zip"
-$geteltorito_bin="$scriptRoot\geteltorito\geteltorito.exe"
+$wsusoffline_up="$wsusoffline_dir\cmd\UpdateOU.cmd"
 
 $imdisk_url="http://www.ltr-data.se/files/imdiskinst.exe"
 
-$mkisofs_url="http://smithii.com/files/cdrtools-latest.zip"
-$mkisofs_bin="$scriptRoot\cdrtools-latest\mkisofs.exe"
-
 $x64_image=$true
 $win_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_u_677704.iso"
-
 # TODO : detect from target iso?
 if ($x64_image) { $wsus_target="w61-x64" } else { $wsus_target="w61" }
 
-$ignored_kbs=@("KB2506143","KB2533552","KB2819745")
+$buildDate=(Get-Date).ToString("yyyyMMdd") # -HHmmss.ffff
+$new_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_$buildDate.iso"
 
 $kb_dir=(Join-Path $wsusoffline_dir "\client\$wsus_target\glb")
 $dism_temp="$scriptRoot\dismmount"
 $src_temp="$scriptRoot\src"
 $sources_temp="$src_temp\sources"
 $wim_temp="$sources_temp\install.wim"
-$bootbin_filename="boot.bin"
-$bootbin_path="$scriptRoot\$bootbin_filename"
+$etfsboot=(Join-Path $src_temp "boot\etfsboot.com")
 
-# TODO : check powershell version
 # TODO : check admin priveleges
 
 function Download-Extract($url,[bool]$createSubdir = $false)
@@ -85,22 +79,6 @@ function Test-ImDisk
 	}
 }
 
-function Test-geteltorito
-{
-	IF (-not (Test-Path $geteltorito_bin)) 
-	{
-		Download-Extract $geteltorito_url $true
-	}
-}
-
-function Test-mkisofs
-{
-	IF (-not (Test-Path $mkisofs_bin)) 
-	{
-		Download-Extract $mkisofs_url $true
-	}
-}
-
 function Mount-Iso([string] $isoPath)
 {
 	Write-Host "Mount-Iso called with $isoPath"
@@ -122,10 +100,15 @@ function Dismount-Iso([string] $driveLetter)
 
 function Select-WimIndex
 {
-	& dism /get-wiminfo /wimfile:$wim_temp | Out-Host
-	# capture output, if 'index :' -count -gt 1
-	return (Read-Host "Please enter an index from the list to update")
-	# else return 1
+	$indexOutput = & dism /get-wiminfo /wimfile:$wim_temp
+	$indexCount = ($indexOutput | Select-String "Index" -AllMatches).Matches.Count
+
+	if ($indexCount -gt 1) {
+		Write-Host $indexOutput
+		return (Read-Host "Please enter an index from the list to update")
+	} else {
+		return 1
+	}
 }
 
 function Update-WimImage
@@ -154,12 +137,20 @@ function Update-WimImage
 
 function Remove-IgnoredKbs
 {
+	$ignored_kbs=@("KB2506143","KB2533552","KB2819745")
 	Get-ChildItem $kb_dir | where { 
 	$_.Name -Match ($ignored_kbs -join "|") } | foreach {
 		Write-Host "Removing ignored update $($_.Name)"
 		$kbfile=Join-Path $kb_dir $_.Name
 		if (Test-Path $kbfile -PathType Leaf) { rm $kbfile }
 	}
+}
+
+function Exclude-IgnoredKbs
+{
+Write-Output "kb2819745
+kb2506143
+kb2533552"| Out-File -FilePath (Join-Path $wsusoffline_dir "\exclude\custom\ExcludeList-w61-x64.txt") -Encoding "UTF8"
 }
 
 function Download-WsusUpdates
@@ -172,25 +163,11 @@ function Download-WsusUpdates
 function Update-WsusOffline
 {
 	Write-Host "Updating WsusOfflineUpdater"
-	# & UpdateOU.cmd
+	& $wsusoffline_up
 }
 
-function Extract-BootBin
+function Determine-LatestKB
 {
-	& $geteltorito_bin $win_iso_filename | Out-File $bootbin_path
-}
-
-function Build-UpdatedIso
-{
-	# dd if=../en_windows_7_enterprise_x64_dvd_x15-70749.iso of=boot.img bs=2048 count=8 skip=734
-	# ..\bin\mkisofs.exe -iso-level 4 -udf -exclude-list %ISO_FILTER% -output %OUTPUT_PATH%\%ISO_NAME%.iso -volid %ISO_VOLID% ..\client
-	# $mkisofs_bin -udf -v -no-emul-boot -b $mountPath\boot.bin -c $mountPath\boot.catalog -o test.iso -M E:\ /sources/=C:\source\win7iso\install.wim
-	# mkisofs -iso-level 4 -l -d -D -J -joliet-long -b boot.bin -hide boot.bin -hide boot.catalog -allow-multidot -no-emul-boot -volid "XPCD" -A MKISOFS -sysid "Win32" -boot-load-size 4 -o "M:\Winlite.iso" "M:\source"
-	# "/sources/=C:\source\win7iso\install.wim"
-	# mkisofs -udf -v -b boot/etfsboot.com -no-emul-boot -hide boot.bin -hide boot.catalog -o new.iso X17-59186
-	#"-graft-points",
-	#"-c",(Join-Path $mountPath "boot.catalog"),	
-
 	# $latestkb = 
 	# get latest file in $kb_dir
 	# kb(d\+)
@@ -200,41 +177,26 @@ function Build-UpdatedIso
 	# $win_iso_filename strip extension
 	# strip u_(d\+_)
 	# add u_$latestkb
+}
 
-	$buildDate=(Get-Date).ToString("yyyyMMdd") # -HHmmss.ffff
-	$new_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_$buildDate.iso"
-	$bootFile=(Join-Path $src_temp "boot\etfsboot.com")
-
+function Build-UpdatedIso
+{
 	. .\New-IsoFile.ps1
-	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title $buildDate -BootFile $bootFile -Force
-
-	<#
-	IF (Test-Path $new_iso_filename) { Remove-Item $new_iso_filename }
-	
-	$mkisofs_args=@("-udf",
-		"-v",
-		"-b",$bootbin_filename,
-		"-iso-level","4",
-		"-no-emul-boot",
-		"-hide",$bootbin_filename,
-		"-hide","boot.catalog",
-		"-o",$new_iso_filename,
-		$src_temp)
-		
-	$process=Start-Process -FilePath $mkisofs_bin -ArgumentList $mkisofs_args -passthru -Wait
-	$process.WaitForExit()
-	#>
+	echo "Building Updated ISO $new_iso_filename"
+	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title $buildDate -BootFile $etfsboot -Force
 }
 
 function Copy-IsoContents
 {
 	IF (Test-Path $src_temp) 
-	{ 
+	{
+		echo "Removing Previous $src_temp"
 		Remove-Item $src_temp -Recurse -Force
 	}
 	
 	if (Test-Path (Join-Path $mountPath "sources\install.wim")) 
 	{
+		echo "Copying $mountPath to $src_temp"
 		Copy-Item $mountPath "$src_temp\" -Recurse
 	}
 }
@@ -243,11 +205,11 @@ Test-WinIsoExists
 
 Test-WsusOfflineBin
 
-#Test-mkisofs
-
 Test-ImDisk
 
-#Test-geteltorito
+#Update-WsusOffline
+
+Exclude-IgnoredKbs
 
 Download-WsusUpdates
 
@@ -263,8 +225,6 @@ finally
 { 
 	Dismount-Iso $mountPath 
 }
-
-#Extract-BootBin
 
 Update-WimImage
 
