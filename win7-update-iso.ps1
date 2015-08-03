@@ -9,7 +9,7 @@ $wsusoffline_bin="$wsusoffline_dir\UpdateGenerator.exe"
 $wsusoffline_cmd="$wsusoffline_dir\cmd\DownloadUpdates.cmd"
 
 $geteltorito_url="http://www.ltr-data.se/files/geteltorito.zip"
-$geteltorito_bin="$scriptRoot\geteltorito.exe"
+$geteltorito_bin="$scriptRoot\geteltorito\geteltorito.exe"
 
 $imdisk_url="http://www.ltr-data.se/files/imdiskinst.exe"
 
@@ -30,23 +30,26 @@ $src_temp="$scriptRoot\src"
 $sources_temp="$src_temp\sources"
 $wim_temp="$sources_temp\install.wim"
 $bootbin_filename="boot.bin"
-$bootbin_path="$src_temp\$bootbin_filename"
+$bootbin_path="$scriptRoot\$bootbin_filename"
 
 # TODO : check powershell version
 # TODO : check admin priveleges
 
-function Download-Extract($url)
+function Download-Extract($url,[bool]$createSubdir = $false)
 {
 	$filename = [System.IO.Path]::GetFileName($url)
 	$file = [System.IO.Path]::Combine($pwd.Path, $filename)
 	Write-Host "Downloading $filename from $url"
 	
 	(New-Object System.Net.WebClient).DownloadFile($url,$file)
+
+	$targetFolder = $scriptRoot
+	if ($createSubdir) {
+	$folderName = [System.IO.Path]::GetFileNameWithoutExtension($filename)
+	$targetFolder = (Join-Path $scriptRoot $folderName) }
 	
-	$shell_app=new-object -com shell.application
-	$zip_file = $shell_app.namespace($file)
-	$destination = $shell_app.namespace((Get-Location).Path)
-	$destination.Copyhere($zip_file.items())
+	[System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')
+	[System.IO.Compression.ZipFile]::ExtractToDirectory($file, $targetFolder)
 }
 
 function Test-WsusOfflineBin
@@ -86,13 +89,16 @@ function Test-geteltorito
 {
 	IF (-not (Test-Path $geteltorito_bin)) 
 	{
-		Download-Extract $geteltorito_url
+		Download-Extract $geteltorito_url $true
 	}
 }
 
 function Test-mkisofs
 {
-
+	IF (-not (Test-Path $mkisofs_bin)) 
+	{
+		Download-Extract $mkisofs_url $true
+	}
 }
 
 function Mount-Iso([string] $isoPath)
@@ -194,11 +200,12 @@ function Build-UpdatedIso
 	# $win_iso_filename strip extension
 	# strip u_(d\+_)
 	# add u_$latestkb
-	
-	$new_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_u_2957689.iso"
+
+	$buildDate=(Get-Date).ToString("yyyyMMdd") # -HHmmss.ffff
+	$new_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_$buildDate.iso"
 
 	. .\New-IsoFile.ps1
-	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title (Get-Date).ToString("yyyyMMdd-HHmmss.ffff") -BootFile "$bootbin_filename" -Force 
+	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title $buildDate -BootFile etfsboot.com -Force
 
 	<#
 	IF (Test-Path $new_iso_filename) { Remove-Item $new_iso_filename }
@@ -235,11 +242,11 @@ Test-WinIsoExists
 
 Test-WsusOfflineBin
 
-Test-mkisofs
+#Test-mkisofs
 
 Test-ImDisk
 
-Test-geteltorito
+#Test-geteltorito
 
 Download-WsusUpdates
 
@@ -256,10 +263,8 @@ finally
 	Dismount-Iso $mountPath 
 }
 
-Extract-BootBin
+#Extract-BootBin
 
 Update-WimImage
 
 Build-UpdatedIso
-
-
