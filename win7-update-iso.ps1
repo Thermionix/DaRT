@@ -1,4 +1,5 @@
-#requires -version 3.0
+#requires -version 4.0
+#requires -runasadministrator
 
 $ErrorActionPreference = "Stop"
 $scriptRoot=Resolve-Path "."
@@ -14,11 +15,15 @@ $imdisk_url="http://www.ltr-data.se/files/imdiskinst.exe"
 
 $x64_image=$true
 $win_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_u_677704.iso"
+
 # TODO : detect from target iso?
 if ($x64_image) { $wsus_target="w61-x64" } else { $wsus_target="w61" }
 
 $buildDate=(Get-Date).ToString("yyyyMMdd") # -HHmmss.ffff
 $new_iso_filename="en_windows_7_enterprise_n_with_sp1_x64_dvd_$buildDate.iso"
+
+$ignored_kbs=@("kb2506143","kb2533552","kb2819745")
+$exclude_list_file=(Join-Path $wsusoffline_dir "\exclude\custom\ExcludeList-w61-x64.txt")
 
 $kb_dir=(Join-Path $wsusoffline_dir "\client\$wsus_target\glb")
 $dism_temp="$scriptRoot\dismmount"
@@ -26,8 +31,6 @@ $src_temp="$scriptRoot\src"
 $sources_temp="$src_temp\sources"
 $wim_temp="$sources_temp\install.wim"
 $etfsboot=(Join-Path $src_temp "boot\etfsboot.com")
-
-# TODO : check admin priveleges
 
 function Download-Extract($url,[bool]$createSubdir = $false)
 {
@@ -137,7 +140,6 @@ function Update-WimImage
 
 function Remove-IgnoredKbs
 {
-	$ignored_kbs=@("KB2506143","KB2533552","KB2819745")
 	Get-ChildItem $kb_dir | where { 
 	$_.Name -Match ($ignored_kbs -join "|") } | foreach {
 		Write-Host "Removing ignored update $($_.Name)"
@@ -148,9 +150,8 @@ function Remove-IgnoredKbs
 
 function Exclude-IgnoredKbs
 {
-Write-Output "kb2819745
-kb2506143
-kb2533552"| Out-File -FilePath (Join-Path $wsusoffline_dir "\exclude\custom\ExcludeList-w61-x64.txt") -Encoding "UTF8"
+	Write-Output ($ignored_kbs -join [Environment]::NewLine) | 
+		Out-File -FilePath $exclude_list_file -Encoding "UTF8"
 }
 
 function Download-WsusUpdates
@@ -182,22 +183,34 @@ function Determine-LatestKB
 function Build-UpdatedIso
 {
 	. .\New-IsoFile.ps1
-	echo "Building Updated ISO $new_iso_filename"
+	Write-Host "Building Updated ISO $new_iso_filename"
 	dir $src_temp | New-IsoFile -Path "$new_iso_filename" -Title $buildDate -BootFile $etfsboot -Force
 }
 
 function Copy-IsoContents
 {
-	IF (Test-Path $src_temp) 
-	{
-		echo "Removing Previous $src_temp"
-		Remove-Item $src_temp -Recurse -Force
-	}
-	
 	if (Test-Path (Join-Path $mountPath "sources\install.wim")) 
 	{
-		echo "Copying $mountPath to $src_temp"
+		Write-Host "Copying $mountPath to $src_temp"
 		Copy-Item $mountPath "$src_temp\" -Recurse
+	}
+}
+
+function Clean-SrcTemp
+{
+	IF (Test-Path $src_temp) 
+	{
+		Write-Host "Cleaning $src_temp"
+		Remove-Item $src_temp -Recurse -Force
+	}
+}
+
+function Clean-DismTemp
+{
+	IF (Test-Path $dism_temp) 
+	{
+		Write-Host "Cleaning $dism_temp"
+		Remove-Item $dism_temp -Recurse -Force
 	}
 }
 
@@ -215,6 +228,8 @@ Download-WsusUpdates
 
 Remove-IgnoredKbs
 
+Clean-SrcTemp
+
 try
 {
 	$mountPath = Mount-Iso $win_iso_filename
@@ -229,3 +244,7 @@ finally
 Update-WimImage
 
 Build-UpdatedIso
+
+Clean-SrcTemp
+Clean-DismTemp
+
